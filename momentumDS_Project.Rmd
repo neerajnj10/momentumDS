@@ -186,8 +186,16 @@ final <- round(final, digits =0)
 Submission <- as.data.frame(cbind(final, test$mpg))
 colnames(Submission) <- c("Predicted", "mpg")
 Submission$Distance <- Submission$mpg - Submission$Predicted
+
+## rmse 
 sqrt(mean((final-test$mpg)^2))
+[1] 2.557812
+
+#R-squared
 (cor(final, test$mpg)^2)*100
+         [,1]
+predict 88.60675
+
 View(Submission)
 write.csv(Submission, "SubmissionMomentum.csv", row.names=F)
 ```
