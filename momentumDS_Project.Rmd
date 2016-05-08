@@ -41,9 +41,14 @@ ggplot(data= momentum, aes(x= cylinders, y= displacement, fill= cylinders))+ geo
 d <- density(momentum$mpg)
 plot(d, xlab = "MPG", main ="Density Plot of MPG")
 
-#Mpg decreases with increase in number of cylinders, displacement, weight, horsepower and increases with acceleration (the variable acceleration represents time taken to acceleration from 0 - 60 mph, so the higher the acceleration value, the worse the actual acceleration)
+#Mpg decreases with increase in number of cylinders, displacement, weight, horsepower and increases with 
+acceleration (the variable acceleration represents time taken to acceleration from 0 - 60 mph, so the higher the 
+acceleration value, the worse the actual acceleration)
 
-#car name has more than 300 levels which is quite understandable as each car name (or atleast most of them) are unique, however they belong to particular brands, we would like to reduce the levels as well as group them to smaller number. Most of the time, brand name influences the buying of car as each brand is most likely percieved for its overall quality including 
+#car name has more than 300 levels which is quite understandable as each car name (or atleast most of them) are unique, 
+however they belong to particular brands, we would like to reduce the levels as well as group them to smaller number. 
+Most of the time, brand name influences the buying of car as each brand is most likely percieved for its overall quality
+
 momentum$`car name`[1]
 strsplit(as.character(momentum$`car name`)[1], " +")[[1]][1]
 momentum$brand <- sapply(as.character(momentum$`car name`), FUN=function(x) {strsplit(x, " +")[[1]][1]})
@@ -58,7 +63,8 @@ momentum$brand <-recode(momentum$brand, "c('maxda', 'mazda')='mazda'; c('chevroe
 
 #so now from 305 we have reducd ourselves to 28 levels(easier to handle)
 
-#another generic assumption we are going to make following from above visulization is that light weight cars with low horsepower seem to have good fuel efficiency while heavy vehicle with high horsepower will have low fuel efficiency.
+#another generic assumption we are going to make following from above visulization is that light weight cars with low 
+horsepower seem to have good fuel efficiency while heavy vehicle with high horsepower will have low fuel efficiency.
 
 #we will try and validate it with  following exploration and create new variable based on it. 
 tapply(momentum$horsepower, momentum$cylinders, FUN=mean)
@@ -75,8 +81,6 @@ tapply(momentum$mpg, momentum$efficiency, FUN=mean)
 momentum<- subset(momentum, brand!="hi")
 
 full <- momentum[,-9]
-#also we realize that "acceptable" has very broad range of data points. Earlier we noticed that cars with 4 cylinders have 
-
 
 mpg_mean <- ddply(full, .(cylinders, efficiency), summarize, Mpg_Mean=mean(mpg))
 horse_mean <- ddply(full, .(cylinders, efficiency), summarize, HP_Mean=mean(horsepower))
@@ -86,7 +90,8 @@ disp_mean <- ddply(full, .(cylinders, efficiency), summarize, Disp_Mean=mean(dis
 
 X_full <- merge(full, c(mpg_mean,horse_mean,weight_mean,acc_mean,disp_mean), by=c("cylinders", "efficiency"))
 
-# feature representing the proportion of times the efficincy of the car with certain no. of cylinders higher than average.
+# feature representing the proportion of times for each variable( the times efficincy of the car with certain no. of cylinders),
+higher than average.
 
 X_full$flag_high1 <- ifelse(X_full$mpg > X_full$Mpg_Mean,1,0)
 mpg_high <- ddply(X_full, .(cylinders, efficiency), summarize, Mpg_High=mean(flag_high1))
@@ -148,7 +153,7 @@ train.hex <- as.h2o(train)
 test.hex <- as.h2o(test)
 
 ###
-## building gbm and learning model, and ensembling at the end by giving weights to each mode and make them a powerful piece togethe.
+## building deep learning.
 
 
 dl_model_2 = h2o.deeplearning( x=c(1,2,4:20),
@@ -170,6 +175,7 @@ dl_model_2 = h2o.deeplearning( x=c(1,2,4:20),
 h2opredict <- predict(dl_model_2, (test.hex))
 pred3 <-as.data.frame(h2opredict)
 
+#combining by givig weightage.
 
 final <-  0.45* First_Pred + 0.55*pred3
 final <- round(final, digits =0)
@@ -179,5 +185,6 @@ Submission$Distance <- Submission$mpg - Submission$Predicted
 sqrt(mean((final-test$mpg)^2))
 (cor(final, test$mpg)^2)*100
 View(Submission)
+write.csv(Submission, "SubmissionMomentum.csv", row.names=F)
 ```
 
