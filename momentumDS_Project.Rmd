@@ -31,7 +31,7 @@ fit.hp<-rpart(horsepower[!is.na(horsepower)]~cylinders+displacement+weight+accel
 momentum$horsepower[is.na(momentum$horsepower)]<-predict(fit.hp,momentum[is.na(momentum$horsepower),])
 momentum$horsepower <- round(momentum$horsepower, digits = 1)
 target <- as.data.frame(momentum$mpg)
-#read.csv("http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data",header=FALSE, sep="", as.is=TRUE)
+
 pairs(~log(mpg) + displacement + horsepower + weight +acceleration, data = momentum, col="blue")
 
 ggplot(data= momentum, aes(x= displacement, y= mpg, color= displacement))+ geom_point()
@@ -54,7 +54,8 @@ strsplit(as.character(momentum$`car name`)[1], " +")[[1]][1]
 momentum$brand <- sapply(as.character(momentum$`car name`), FUN=function(x) {strsplit(x, " +")[[1]][1]})
 
 
-# now we see there are many repitive levels(brand names), which were present in raw dataset as well, if we had left them as is, it would have gone unseen as well as would resulted in model of lower accuracy. So we will further clean it.
+# now we see there are many repitive levels(brand names), which were present in raw dataset as well, if we had left them as is, 
+it would have gone unseen as well as would resulted in model of lower accuracy. So we will further clean it.
 momentum$brand <- as.factor(momentum$brand)
 momentum$brand <-recode(momentum$brand, "c('maxda', 'mazda')='mazda'; c('chevroelt', 'chevrolet', 'chevy')='chevrolet';
        c('toyouta', 'toyota')='toyota'; c('mercedes', 'mercedes-benz')='mercedes';
@@ -76,7 +77,9 @@ momentum$efficiency <- as.factor(momentum$efficiency)
 #now validating what we just did with our assumption.
 tapply(momentum$mpg, momentum$efficiency, FUN=mean)
 
-#I am going to further remove one particular observation and treat it as an outlier (outlier because it definitely seems like data entry error, also represent the lowest value for cars with 8 cylinders, therefore can be treated as an oulier). The entry where "car brand" is "hi" is confusing and is definitely not an acceptable brand.
+#I am going to further remove one particular observation and treat it as an outlier (outlier because it definitely seems like 
+data entry error, also represent the lowest value for cars with 8 cylinders, therefore can be treated as an oulier). 
+The entry where "car brand" is "hi" is confusing and is definitely not an acceptable brand.
 
 momentum<- subset(momentum, brand!="hi")
 
@@ -114,7 +117,8 @@ X_prefinal <- merge(X_full,  c(mpg_high,HP_high, Disp_high, Acc_high,Wt_high), b
 
 X_prefinal <- subset(X_prefinal, select=-c(12, 13, 15,16,18,19,21,22,24,25,26,27,28, 30,31,33,34,36,37,39,40))
 
-#Now we think we are ready to start building the model. We will also remove the car name column, as we have already made car brand out of it.
+#Now we think we are ready to start building the model. We will also remove the car name column, as we have already 
+made car brand out of it.
 
 colnames(X_prefinal)[8] <- "model_year"
 
