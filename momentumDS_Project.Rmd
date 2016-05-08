@@ -42,12 +42,12 @@ d <- density(momentum$mpg)
 plot(d, xlab = "MPG", main ="Density Plot of MPG")
 
 #Mpg decreases with increase in number of cylinders, displacement, weight, horsepower and increases with 
-acceleration (the variable acceleration represents time taken to acceleration from 0 - 60 mph, so the higher the 
-acceleration value, the worse the actual acceleration)
+#acceleration (the variable acceleration represents time taken to acceleration from 0 - 60 mph, so the higher the 
+#acceleration value, the worse the actual acceleration)
 
 #car name has more than 300 levels which is quite understandable as each car name (or atleast most of them) are unique, 
-however they belong to particular brands, we would like to reduce the levels as well as group them to smaller number. 
-Most of the time, brand name influences the buying of car as each brand is most likely percieved for its overall quality
+#however they belong to particular brands, we would like to reduce the levels as well as group them to smaller number. 
+#Most of the time, brand name influences the buying of car as each brand is most likely percieved for its overall quality
 
 momentum$`car name`[1]
 strsplit(as.character(momentum$`car name`)[1], " +")[[1]][1]
@@ -55,7 +55,8 @@ momentum$brand <- sapply(as.character(momentum$`car name`), FUN=function(x) {str
 
 
 # now we see there are many repitive levels(brand names), which were present in raw dataset as well, if we had left them as is, 
-it would have gone unseen as well as would resulted in model of lower accuracy. So we will further clean it.
+#it would have gone unseen as well as would resulted in model of lower accuracy. So we will further clean it.
+
 momentum$brand <- as.factor(momentum$brand)
 momentum$brand <-recode(momentum$brand, "c('maxda', 'mazda')='mazda'; c('chevroelt', 'chevrolet', 'chevy')='chevrolet';
        c('toyouta', 'toyota')='toyota'; c('mercedes', 'mercedes-benz')='mercedes';
@@ -65,9 +66,10 @@ momentum$brand <-recode(momentum$brand, "c('maxda', 'mazda')='mazda'; c('chevroe
 #so now from 305 we have reducd ourselves to 28 levels(easier to handle)
 
 #another generic assumption we are going to make following from above visulization is that light weight cars with low 
-horsepower seem to have good fuel efficiency while heavy vehicle with high horsepower will have low fuel efficiency.
+#horsepower seem to have good fuel efficiency while heavy vehicle with high horsepower will have low fuel efficiency.
 
 #we will try and validate it with  following exploration and create new variable based on it. 
+
 tapply(momentum$horsepower, momentum$cylinders, FUN=mean)
 
 momentum$efficiency[momentum$horsepower < 80 & momentum$weight <2500] <-"Best"
@@ -78,8 +80,8 @@ momentum$efficiency <- as.factor(momentum$efficiency)
 tapply(momentum$mpg, momentum$efficiency, FUN=mean)
 
 #I am going to further remove one particular observation and treat it as an outlier (outlier because it definitely seems like 
-data entry error, also represent the lowest value for cars with 8 cylinders, therefore can be treated as an oulier). 
-The entry where "car brand" is "hi" is confusing and is definitely not an acceptable brand.
+#data entry error, also represent the lowest value for cars with 8 cylinders, therefore can be treated as an oulier). 
+#The entry where "car brand" is "hi" is confusing and is definitely not an acceptable brand.
 
 momentum<- subset(momentum, brand!="hi")
 
@@ -94,7 +96,7 @@ disp_mean <- ddply(full, .(cylinders, efficiency), summarize, Disp_Mean=mean(dis
 X_full <- merge(full, c(mpg_mean,horse_mean,weight_mean,acc_mean,disp_mean), by=c("cylinders", "efficiency"))
 
 # feature representing the proportion of times for each variable( the times efficincy of the car with certain no. of cylinders),
-higher than average.
+#higher than average.
 
 X_full$flag_high1 <- ifelse(X_full$mpg > X_full$Mpg_Mean,1,0)
 mpg_high <- ddply(X_full, .(cylinders, efficiency), summarize, Mpg_High=mean(flag_high1))
@@ -118,7 +120,7 @@ X_prefinal <- merge(X_full,  c(mpg_high,HP_high, Disp_high, Acc_high,Wt_high), b
 X_prefinal <- subset(X_prefinal, select=-c(12, 13, 15,16,18,19,21,22,24,25,26,27,28, 30,31,33,34,36,37,39,40))
 
 #Now we think we are ready to start building the model. We will also remove the car name column, as we have already 
-made car brand out of it.
+#made car brand out of it.
 
 colnames(X_prefinal)[8] <- "model_year"
 
