@@ -1,11 +1,19 @@
+---
+title: "MC_DataScienceProject"
+author: "Neeraj"
+output: html_document
+---
+
+
+```{r, warning=FALSE}
 library(plyr)
 library(Cubist)
 require(mlbench)
 library(rpart)
+library(caret)
 library(ggplot2)
 library(car)
-library(caret)
-
+set.seed(123)
 
 f <-file("https://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data", open="r")
 momentum <- read.table(f, dec=".", header=F)
@@ -18,30 +26,46 @@ momentum$horsepower <- as.numeric(as.character(momentum$horsepower))
 fac <- c("cylinders", "model year", "origin") 
 momentum[fac] <- lapply(momentum[fac], as.factor) 
 
-set.seed(123)
+#fit.hp$variable.importance
 fit.hp<-rpart(horsepower[!is.na(horsepower)]~cylinders+displacement+weight+acceleration
               +`car name`,data=momentum[!is.na(momentum$horsepower),],method='anova')
 momentum$horsepower[is.na(momentum$horsepower)]<-predict(fit.hp,momentum[is.na(momentum$horsepower),])
 momentum$horsepower <- round(momentum$horsepower, digits = 1)
 target <- as.data.frame(momentum$mpg)
+#read.csv("http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data",header=FALSE, sep="", as.is=TRUE)
+pairs(~log(mpg) + displacement + horsepower + weight +acceleration, data = momentum, col="blue")
 
-pairs(~mpg + displacement + horsepower + weight + acceleration, data = momentum, col="blue")
 ggplot(data= momentum, aes(x= displacement, y= mpg, color= displacement))+ geom_point()
 ggplot(data= momentum, aes(x= cylinders, y= mpg, color= cylinders))+ geom_boxplot()
 ggplot(data= momentum, aes(x= cylinders, y= displacement, fill= cylinders))+ geom_boxplot()
 
+d <- density(momentum$mpg)
+plot(d, xlab = "MPG", main ="Density Plot of MPG")
+
+#Mpg decreases with increase in number of cylinders, displacement, weight, horsepower and increases with acceleration 
+#(the variable acceleration represents time taken to acceleration from 0 - 60 mph, so the higher the acceleration value, 
+#the worse the actual acceleration)
+
+#car name has more than 300 levels which is quite understandable as each car name (or atleast most of them) are unique, 
+#however they belong to particular brands, we would like to reduce the levels as well as group them to smaller number. 
+#Most of the time, brand name influences the buying of car as each brand is most likely percieved for its overall quality 
+#and customer satisfaction in fuel efficiency, brand such as toyota or chevy etc.
 
 momentum$`car name`[1]
 strsplit(as.character(momentum$`car name`)[1], " +")[[1]][1]
 momentum$brand <- sapply(as.character(momentum$`car name`), FUN=function(x) {strsplit(x, " +")[[1]][1]})
 
 
+# now we see there are many repitive levels(brand names), which were present in raw dataset as well, if we had left them as is, it would have gone unseen as well as would resulted in model of lower accuracy. So we will further clean it.
 momentum$brand <- as.factor(momentum$brand)
 momentum$brand <-recode(momentum$brand, "c('maxda', 'mazda')='mazda'; c('chevroelt', 'chevrolet', 'chevy')='chevrolet';
-                        c('toyouta', 'toyota')='toyota'; c('mercedes', 'mercedes-benz')='mercedes';
-                        c('volkswagen', 'vw', 'vokswagen')='volkswagen';c('mercury', 'capri')='mercury';
-                        c('opel','buick')='buick'")
+       c('toyouta', 'toyota')='toyota'; c('mercedes', 'mercedes-benz')='mercedes';
+       c('volkswagen', 'vw', 'vokswagen')='volkswagen';c('mercury', 'capri')='mercury';
+       c('opel','buick')='buick'")
 
+#so now from 305 we have reducd ourselves to 30 around levels(easier to handle)
+
+#we will try and validate it with  following exploration and create new variable based on it. 
 tapply(momentum$horsepower, momentum$cylinders, FUN=mean)
 
 momentum$efficiency[momentum$horsepower < 80 & momentum$weight <2500] <-"Best"
@@ -51,23 +75,44 @@ momentum$efficiency <- as.factor(momentum$efficiency)
 #now validating what we just did with our assumption.
 tapply(momentum$mpg, momentum$efficiency, FUN=mean)
 
+
+#I am going to further remove one particular observation and treat it as an outlier (outlier because it definitely 
+#seems like data entry error, also represent the lowest value for cars with 8 cylinders, therefore can be treated as an oulier). 
+#The entry where "car brand" is "hi" is confusing and is definitely not an acceptable brand.
+
 momentum<- subset(momentum, brand!="hi")
 
 full <- momentum[,-9]
 
-aggregate(data.frame(full$horsepower, full$displacement, full$mpg, full$weight, full$mpg), by=list(full$cylinders,
-                                                                                                   full$efficiency),FUN="mean")
-
-
 mpg_mean <- ddply(full, .(cylinders, efficiency), summarize, Mpg_Mean=mean(mpg))
-X_full <- merge(full, mpg_mean, by=c("cylinders", "efficiency"))
+horse_mean <- ddply(full, .(cylinders, efficiency), summarize, HP_Mean=mean(horsepower))
+weight_mean <- ddply(full, .(cylinders, efficiency), summarize, Wt_Mean=mean(weight))
+acc_mean <- ddply(full, .(cylinders, efficiency), summarize, Acc_Mean=mean(acceleration))
+disp_mean <- ddply(full, .(cylinders, efficiency), summarize, Disp_Mean=mean(displacement))
+
+X_full <- merge(full, c(mpg_mean,horse_mean,weight_mean,acc_mean,disp_mean), by=c("cylinders", "efficiency"))
+
+# feature representing the proportion of times for all variables (efficiency of the car with certain no. of cylinders) higher than average.
+
+X_full$flag_high1 <- ifelse(X_full$mpg > X_full$Mpg_Mean,1,0)
+mpg_high <- ddply(X_full, .(cylinders, efficiency), summarize, Mpg_High=mean(flag_high1))
+
+X_full$flag_high2 <- ifelse(X_full$horsepower > X_full$HP_Mean,1,0)
+HP_high <- ddply(X_full, .(cylinders, efficiency), summarize, HP_High=mean(flag_high2))
+
+X_full$flag_high3 <- ifelse(X_full$displacement > X_full$Disp_Mean,1,0)
+Disp_high <- ddply(X_full, .(cylinders, efficiency), summarize, Disp_High=mean(flag_high3))
+
+X_full$flag_high4 <- ifelse(X_full$acceleration > X_full$Acc_Mean,1,0)
+Acc_high <- ddply(X_full, .(cylinders, efficiency), summarize, Acc_High=mean(flag_high4))
+
+X_full$flag_high5 <- ifelse(X_full$weight > X_full$Wt_Mean,1,0)
+Wt_high <- ddply(X_full, .(cylinders, efficiency), summarize, Wt_High=mean(flag_high5))
 
 
-X_full$flag_high <- ifelse(X_full$mpg > X_full$Mpg_Mean,1,0)
-eff_high <- ddply(X_full, .(cylinders, efficiency), summarize, Eff_High=mean(flag_high))
-X_prefinal <- merge(X_full, eff_high, by=c("cylinders", "efficiency"))
-
-X_prefinal <- subset(X_prefinal, select=-c(flag_high))
+X_prefinal <- merge(X_full,  c(mpg_high,HP_high, Disp_high, Acc_high,Wt_high), by=c("cylinders", "efficiency"))
+#remove unwanted columns
+X_prefinal <- subset(X_prefinal, select=-c(12, 13, 15,16,18,19,21,22,24,25,26,27,28, 30,31,33,34,36,37,39,40))
 
 colnames(X_prefinal)[8] <- "model_year"
 
@@ -81,14 +126,58 @@ train_ind <- sample(seq_len(nrow(X_prefinal)), size = smp_size)
 train <- X_prefinal[train_ind, ]
 test <- X_prefinal[-train_ind, ]
 
-target <- train$mpg
-train$mpg <- NULL
-cube <- train(x = train, y = target, "cubist", 
+cubetarget <- log(train$mpg)
+set.seed(6758)
+
+cube <- train(x = train[,-3], y = cubetarget, "cubist", 
               tuneGrid = expand.grid(.committees = c(1, 10, 50, 100),.neighbors =c(0, 1, 5, 9)),
-              trControl = trainControl(method = 'cv'))
-print(cube)
-mtPred<-predict(cube,test)
+             trControl = trainControl(method = 'cv'))
+
+First_Pred <- predict(cube, test, response = "raw")
+First_Pred <-  exp(First_Pred)
+
+########################
+#convert to accessible h2o format.
+library(h2o)
+h2o.init(nthreads = -1)
+train.hex <- as.h2o(train)
+test.hex <- as.h2o(test)
+
+#building deep learning.
+
+dl_model_2 = h2o.deeplearning( x=c(1,2,4:20),
+                               # x=feature,
+                               y = 3,
+                               nfolds = 5,
+                               training_frame =train.hex ,
+                               #validation_frame =testHex ,
+                               activation="TanhWithDropout",
+                               hidden=c(120,120),
+                               epochs=17,
+                               input_dropout_ratio = 0.03,target_ratio_comm_to_comp = 0.07,
+                               score_duty_cycle = 0.07,
+                        stopping_rounds = 0,
+                        score_training_samples = 0,fold_assignment = "Modulo",reproducible=T,
+                        adaptive_rate = T
+)
+
+h2opredict <- predict(dl_model_2, (test.hex))
+pred3 <-as.data.frame(h2opredict)
+
+
+final <-  0.45* First_Pred + 0.55*pred3
+final <- round(final, digits =0)
+Submission <- as.data.frame(cbind(final, test$mpg))
+colnames(Submission) <- c("Predicted", "mpg")
+Submission$Distance <- Submission$mpg - Submission$Predicted
+
 #rmse
-sqrt(mean((mtPred - test$mpg)^2))
-#r-square
-(cor(mtPred,test$mpg)^2)*100
+sqrt(mean((final-test$mpg)^2))
+[1] 2.557812
+
+#R-Squared
+(cor(final, test$mpg)^2)*100
+            [,1]
+predict 88.60675
+View(Submission)
+write.csv(Submission, "SubmissionMomentum.csv", row.names= F)
